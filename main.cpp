@@ -1,4 +1,5 @@
 #include <SDL.h>
+#include <SDL_image.h>
 #include <iostream>
 
 // Stałe dotyczące ekranu
@@ -6,8 +7,8 @@ const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
 
 // Stałe dotyczące postaci
-const float PLAYER_WIDTH = 50.0f;
-const float PLAYER_HEIGHT = 50.0f;
+const float PLAYER_WIDTH = 200.0f;
+const float PLAYER_HEIGHT = 200.0f;
 const float PLAYER_VELOCITY = 5.0f;
 const float GRAVITY = 1.0f;
 const float JUMP_VELOCITY = -20.0f;
@@ -71,11 +72,37 @@ struct Player {
     }
 };
 
+SDL_Texture* loadTexture(const char* path, SDL_Renderer* renderer) {
+    SDL_Surface* tempSurface = IMG_Load(path);
+    if (tempSurface == nullptr) {
+        std::cerr << "Failed to load image: " << IMG_GetError() << std::endl;
+        return nullptr;
+    }
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, tempSurface);
+    SDL_FreeSurface(tempSurface);
+    if (texture == nullptr) {
+        std::cerr << "Failed to create texture: " << SDL_GetError() << std::endl;
+    }
+    return texture;
+}
+
 int main(int argc, char* args[]) {
     SDL_Init(SDL_INIT_VIDEO);
+    IMG_Init(IMG_INIT_PNG);
 
     SDL_Window* window = SDL_CreateWindow("Platformer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+    // Ładowanie tekstur gracza
+    SDL_Texture* playerStandingTexture = loadTexture("player.png", renderer);
+    SDL_Texture* playerMovingLeftTexture = loadTexture("run_left_1.png", renderer);
+    SDL_Texture* playerMovingRightTexture = loadTexture("run_right_1.png", renderer);
+    SDL_Texture* playerJumpingTexture = loadTexture("player.png", renderer);
+
+    if (!playerStandingTexture || !playerMovingLeftTexture || !playerMovingRightTexture || !playerJumpingTexture) {
+        std::cerr << "Failed to load all textures." << std::endl;
+        return 1;
+    }
 
     Player player(100.0f, SCREEN_HEIGHT - PLAYER_HEIGHT);
 
@@ -147,9 +174,18 @@ int main(int argc, char* args[]) {
         SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
         SDL_RenderClear(renderer);
 
+        // Wybór odpowiedniego sprite'a
+        SDL_Texture* currentTexture = playerStandingTexture;
+        if (player.isJumping) {
+            currentTexture = playerJumpingTexture;
+        } else if (movingLeft) {
+            currentTexture = playerMovingLeftTexture;
+        } else if (movingRight) {
+            currentTexture = playerMovingRightTexture;
+        }
+
         // Narysowanie gracza
-        SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
-        SDL_RenderFillRect(renderer, &player.rect);
+        SDL_RenderCopy(renderer, currentTexture, nullptr, &player.rect);
 
         // Wyświetlenie renderowanej grafiki
         SDL_RenderPresent(renderer);
@@ -161,8 +197,13 @@ int main(int argc, char* args[]) {
         }
     }
 
+    SDL_DestroyTexture(playerStandingTexture);
+    SDL_DestroyTexture(playerMovingLeftTexture);
+    SDL_DestroyTexture(playerMovingRightTexture);
+    SDL_DestroyTexture(playerJumpingTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    IMG_Quit();
     SDL_Quit();
 
     return 0;
