@@ -10,7 +10,7 @@ const float PLAYER_WIDTH = 50.0f;
 const float PLAYER_HEIGHT = 50.0f;
 const float PLAYER_VELOCITY = 5.0f;
 const float GRAVITY = 1.0f;
-const float JUMP_VELOCITY = -15.0f;
+const float JUMP_VELOCITY = -20.0f;
 
 // Struktura reprezentująca gracza
 struct Player {
@@ -18,30 +18,30 @@ struct Player {
     float velocityX;
     float velocityY;
     bool isJumping;
-	float accelerationX = 0.3f; // Przyspieszenie w kierunku X
-	float maxVelocityX = 10.0f; // Maksymalna prędkość w kierunku X
-	float maxVelocityY = 10.0f; // Maksymalna prędkość w kierunku X
+    float accelerationX = 0.7f; // Przyspieszenie w kierunku X
+    float maxVelocityX = 10.0f; // Maksymalna prędkość w kierunku X
+    float maxVelocityY = 10.0f; // Maksymalna prędkość w kierunku Y
 
     Player(float x, float y) {
-        rect = {x, y, PLAYER_WIDTH, PLAYER_HEIGHT};
+        rect = {static_cast<int>(x), static_cast<int>(y), static_cast<int>(PLAYER_WIDTH), static_cast<int>(PLAYER_HEIGHT)};
         velocityX = 0.0f;
         velocityY = 0.0f;
         isJumping = false;
     }
 
     void moveLeft() {
-		velocityX -= accelerationX;
-		if (velocityX < -maxVelocityX) {
-			velocityX = -maxVelocityX;
-		}
-	}
+        velocityX -= accelerationX;
+        if (velocityX < -maxVelocityX) {
+            velocityX = -maxVelocityX;
+        }
+    }
 
-	void moveRight() {
-		velocityX += accelerationX;
-		if (velocityX > maxVelocityX) {
-			velocityX = maxVelocityX;
-		}
-	}
+    void moveRight() {
+        velocityX += accelerationX;
+        if (velocityX > maxVelocityX) {
+            velocityX = maxVelocityX;
+        }
+    }
 
     void stopMoving() {
         velocityX = 0.0f;
@@ -55,20 +55,20 @@ struct Player {
     }
 
     void applyGravity() {
-    if (isJumping) {
-        rect.y += velocityY;
-        velocityY += GRAVITY;
-        if (rect.y >= SCREEN_HEIGHT - PLAYER_HEIGHT) {
-            rect.y = SCREEN_HEIGHT - PLAYER_HEIGHT;
-            isJumping = false;
+        if (isJumping) {
+            rect.y += static_cast<int>(velocityY);
+            velocityY += GRAVITY;
+            if (rect.y >= SCREEN_HEIGHT - PLAYER_HEIGHT) {
+                rect.y = SCREEN_HEIGHT - PLAYER_HEIGHT;
+                isJumping = false;
+            }
+        }
+
+        // Ograniczenie prędkości w kierunku Y
+        if (velocityY > maxVelocityY) {
+            velocityY = maxVelocityY;
         }
     }
-
-		// Ograniczenie prędkości w kierunku Y
-		if (velocityY > maxVelocityY) {
-			velocityY = maxVelocityY;
-		}
-	}
 };
 
 int main(int argc, char* args[]) {
@@ -83,9 +83,12 @@ int main(int argc, char* args[]) {
     SDL_Event e;
 
     // Kontrola liczby klatek na sekundę
-    const int TARGET_FPS = 60;
+    const int TARGET_FPS = 120;
     const int FRAME_DELAY = 1000 / TARGET_FPS;
     Uint32 frameStart, frameTime;
+
+    bool movingLeft = false;
+    bool movingRight = false;
 
     while (!quit) {
         frameStart = SDL_GetTicks();
@@ -97,10 +100,10 @@ int main(int argc, char* args[]) {
             else if (e.type == SDL_KEYDOWN) {
                 switch (e.key.keysym.sym) {
                     case SDLK_LEFT:
-                        player.moveLeft();
+                        movingLeft = true;
                         break;
                     case SDLK_RIGHT:
-                        player.moveRight();
+                        movingRight = true;
                         break;
                     case SDLK_SPACE:
                         player.jump();
@@ -112,13 +115,26 @@ int main(int argc, char* args[]) {
             else if (e.type == SDL_KEYUP) {
                 switch (e.key.keysym.sym) {
                     case SDLK_LEFT:
+                        movingLeft = false;
+                        break;
                     case SDLK_RIGHT:
-                        player.stopMoving();
+                        movingRight = false;
                         break;
                     default:
                         break;
                 }
             }
+        }
+
+        // Aktualizacja prędkości gracza na podstawie klawiszy kierunkowych
+        if (movingLeft && !movingRight) {
+            player.moveLeft();
+        }
+        else if (movingRight && !movingLeft) {
+            player.moveRight();
+        }
+        else {
+            player.stopMoving();
         }
 
         // Aktualizacja pozycji gracza na podstawie prędkości
