@@ -59,10 +59,6 @@ struct Player {
         if (isJumping) {
             rect.y += static_cast<int>(velocityY);
             velocityY += GRAVITY;
-            if (rect.y >= SCREEN_HEIGHT - PLAYER_HEIGHT) {
-                rect.y = SCREEN_HEIGHT - PLAYER_HEIGHT;
-                isJumping = false;
-            }
         }
 
         // Ograniczenie prędkości w kierunku Y
@@ -86,6 +82,13 @@ SDL_Texture* loadTexture(const char* path, SDL_Renderer* renderer) {
     return texture;
 }
 
+bool checkCollision(SDL_Rect& rect1, SDL_Rect& rect2) {
+    return (rect1.x < rect2.x + rect2.w &&
+            rect1.x + rect1.w > rect2.x &&
+            rect1.y < rect2.y + rect2.h &&
+            rect1.y + rect1.h > rect2.y);
+}
+
 int main(int argc, char* args[]) {
     SDL_Init(SDL_INIT_VIDEO);
     IMG_Init(IMG_INIT_PNG);
@@ -94,6 +97,7 @@ int main(int argc, char* args[]) {
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
     // Ładowanie tekstur gracza
+    SDL_Texture* mapTexture = loadTexture("map.png", renderer);
     SDL_Texture* playerStandingTexture = loadTexture("player.png", renderer);
     SDL_Texture* playerMovingLeftTexture = loadTexture("run_left_1.png", renderer);
     SDL_Texture* playerMovingRightTexture = loadTexture("run_right_1.png", renderer);
@@ -153,6 +157,8 @@ int main(int argc, char* args[]) {
             }
         }
 
+        SDL_Rect hitbox{790, 850, 300, 100};
+
         // Aktualizacja prędkości gracza na podstawie klawiszy kierunkowych
         if (movingLeft && !movingRight) {
             player.moveLeft();
@@ -165,10 +171,45 @@ int main(int argc, char* args[]) {
         }
 
         // Aktualizacja pozycji gracza na podstawie prędkości
-        player.rect.x += static_cast<int>(player.velocityX);
+        if(player.rect.x >= 0 && player.rect.x < SCREEN_WIDTH){
+            player.rect.x += static_cast<int>(player.velocityX);
+        }
+        else{
+            if(player.velocityX > 0){
+                player.rect.x = SCREEN_WIDTH - player.rect.w /2;
+            }
+            else{
+                player.rect.x = 1;
+            }
+            player.velocityX = 0;
+        }
 
         // Zastosowanie grawitacji
-        player.applyGravity();
+        if(player.rect.y + player.rect.h <= SCREEN_HEIGHT){
+            player.applyGravity();
+        }
+
+        // Wykrywanie kolizji
+        if (checkCollision(player.rect, hitbox)) {
+            if (player.velocityY > 0) { // Gracz opada na hitbox
+                player.rect.y = hitbox.y - player.rect.h;
+                player.velocityY = 0;
+                player.isJumping = false;
+            } else if (player.velocityY < 0) { // Gracz uderza w spód hitboxa
+                player.rect.y = hitbox.y + hitbox.h;
+                player.velocityY = 0;
+            }
+            if (player.rect.x < hitbox.x + hitbox.w && player.rect.x + player.rect.w > hitbox.x) {
+                if (player.velocityX > 0) {
+                    player.rect.x = hitbox.x - player.rect.w;
+                } else if (player.velocityX < 0) {
+                    player.rect.x = hitbox.x + hitbox.w;
+                }
+                player.velocityX = 0;
+            }
+        }
+
+        SDL_Log("%d %d %d", player.rect.x, player.rect.y, player.velocityX);
 
         // Wyczyszczenie ekranu
         SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
@@ -184,8 +225,12 @@ int main(int argc, char* args[]) {
             currentTexture = playerMovingRightTexture;
         }
 
+        SDL_Rect mapSpace{player.rect.x - 50, player.rect.y - 50, 300, 300};
+        SDL_Rect playerSpace{(SCREEN_WIDTH / 2) - (PLAYER_WIDTH / 2), SCREEN_HEIGHT - PLAYER_HEIGHT, PLAYER_WIDTH, PLAYER_HEIGHT};
+
         // Narysowanie gracza
-        SDL_RenderCopy(renderer, currentTexture, nullptr, &player.rect);
+        SDL_RenderCopy(renderer, mapTexture, &mapSpace, nullptr);
+        SDL_RenderCopy(renderer, currentTexture, nullptr, &playerSpace);
 
         // Wyświetlenie renderowanej grafiki
         SDL_RenderPresent(renderer);
