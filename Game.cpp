@@ -23,18 +23,17 @@ const int IDLE_ANIMATION_FRAMES = 4;
 
 SDL_Rect RunningSpriteClips[ WALKING_ANIMATION_FRAMES ];
 SDL_Rect IdleSpriteClips[ IDLE_ANIMATION_FRAMES ];
+SDL_Rect BlockSpriteClip;
 
 TextureHandler gSpriteSheetTexture( gRenderer );
 TextureHandler gBlocksSheetTexture( gRenderer );
 TextureHandler gBackgroundTexture1( gRenderer );
 TextureHandler gBackgroundTexture2( gRenderer );
 TextureHandler gBackgroundTexture3( gRenderer );
-TextureHandler gBackgroundTexture35( gRenderer );
 TextureHandler gBackgroundTexture4( gRenderer );
 TextureHandler gBackgroundTexture5( gRenderer );
 TextureHandler gBackgroundTexture6( gRenderer );
 TextureHandler gBackgroundTexture7( gRenderer );
-TextureHandler gBackgroundTexture75( gRenderer );
 
 SDL_Rect camera = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 SDL_Rect camera2 = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
@@ -98,204 +97,230 @@ bool Game::checkCollision( SDL_Rect a, SDL_Rect b ){
 }
 
 void Game::gameLoop(){
-	//Main loop flag
-	bool quit = false;
+    // Main loop flag
+    bool quit = false;
 
-	//Event handler
-	SDL_Event e;
-	
-	int frame = 0;
+    // Event handler
+    SDL_Event e;
+    
+    int frame = 0;
 
-	Timer fpsTimer;
-	Timer capTimer;
+    Timer fpsTimer;
+    Timer capTimer;
 
-	float countedFrames = 0;
-	fpsTimer.start();
+    float countedFrames = 0;
+    fpsTimer.start();
 
-	bool movingLeft = false;
-	bool movingRight = false;
+    bool movingLeft = false;
+    bool movingRight = false;
 
-	float portion = 0;
-	SDL_Rect backGroundRect = {0, 0};
-	SDL_Rect backGroundRect2 = {0, 0};
-	SDL_Rect displayRect = {0, 0};
-	int howManyFlips = 0;
+    float portion = 0;
+    SDL_Rect backGroundRect = {0, 0};
+    SDL_Rect backGroundRect2 = {0, 0};
+    SDL_Rect displayRect = {0, 0};
+    int howManyFlips = 0;
 
-	int scrollingOffset = 0;
+    int scrollingOffset = 0;
 
-	SDL_RendererFlip flipType = SDL_FLIP_NONE;
+    SDL_RendererFlip flipType = SDL_FLIP_NONE;
 
-	int width = gBackgroundTexture7.getWidth();
-	int multiplier = 1;
+    int width = gBackgroundTexture7.getWidth();
+    int multiplier = 1;
 
-	SDL_Rect box = {300, 80, 300, 100};
+    SDL_Rect box = {rand() % (800 - 100 + 1) + 100, rand() % (650 - 200 + 1) + 200, 47, 47};
 
-	//While application is running
-	while( !quit )
-	{
-		//Start cap timer
-		capTimer.start();
-		//Handle events on queue
-		while( SDL_PollEvent( &e ) != 0 ){
-			if( e.type == SDL_QUIT )
-			{
-				quit = true;
-			}
-			else if (e.type == SDL_KEYDOWN) {
-				switch (e.key.keysym.sym) {
-					case SDLK_LEFT:
-						movingLeft = true;
-						break;
-					case SDLK_RIGHT:
-						movingRight = true;
-						break;
-					case SDLK_SPACE:
-						player.jump();
-						break;
-					default:
-						break;
-				}
-			}
-			else if (e.type == SDL_KEYUP) {
-				switch (e.key.keysym.sym) {
-					case SDLK_LEFT:
-						movingLeft = false;
-						break;
-					case SDLK_RIGHT:
-						movingRight = false;
-						break;
-					default:
-						break;
-				}
-			}
-		}
+    // While application is running
+    while (!quit) {
+        // Start cap timer
+        capTimer.start();
+        // Handle events on queue
+        while (SDL_PollEvent(&e) != 0) {
+            if (e.type == SDL_QUIT) {
+                quit = true;
+            } else if (e.type == SDL_KEYDOWN) {
+                switch (e.key.keysym.sym) {
+                    case SDLK_LEFT:
+                        movingLeft = true;
+                        break;
+                    case SDLK_RIGHT:
+                        movingRight = true;
+                        break;
+                    case SDLK_SPACE:
+                        player.jump();
+                        break;
+                    default:
+                        break;
+                }
+            } else if (e.type == SDL_KEYUP) {
+                switch (e.key.keysym.sym) {
+                    case SDLK_LEFT:
+                        movingLeft = false;
+                        break;
+                    case SDLK_RIGHT:
+                        movingRight = false;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
 
-		if (movingLeft && !movingRight) {
-			flipType = SDL_FLIP_HORIZONTAL;
-			--scrollingOffset;
-			player.moveLeft();
-		}
-		else if (movingRight && !movingLeft) {
-			flipType = SDL_FLIP_NONE;
-			++scrollingOffset;
-			player.moveRight();
-		}
-		else {
-			player.stopMoving();
-		}
+        if (movingLeft && !movingRight) {
+            flipType = SDL_FLIP_HORIZONTAL;
+            --scrollingOffset;
+            player.moveLeft();
+        } else if (movingRight && !movingLeft) {
+            flipType = SDL_FLIP_NONE;
+            ++scrollingOffset;
+            player.moveRight();
+        } else {
+            player.stopMoving();
+        }
 
-		player.hitBox.x += static_cast<int>(player.velocity.x);
-		player.applyGravity();
+        player.hitBox.x += static_cast<int>(player.velocity.x);
+        player.applyGravity();
 
-		if( player.hitBox.y > LEVEL_HEIGHT - PLAYER_HEIGHT - 50){
-			player.velocity.y = 0;
-			player.hitBox.y = LEVEL_HEIGHT - PLAYER_HEIGHT - 50;
-			player.isJumping = false;
-		}
+        if (player.hitBox.y > LEVEL_HEIGHT - PLAYER_HEIGHT - 50) {
+            player.velocity.y = 0;
+            player.hitBox.y = LEVEL_HEIGHT - PLAYER_HEIGHT - 50;
+            player.isJumping = false;
+        }
 
+        bool wasOnBox = checkCollision(player.hitBox, box);
 
-		//Calculate and correct fps
-		float avgFPS = static_cast< float >(countedFrames) / ( static_cast< float >(fpsTimer.getTicks()) / 1000.f );
+        // Collision handling
+        if (checkCollision(player.hitBox, box)) {
 
-		//Clear screen
-		SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
-		SDL_RenderClear( gRenderer );
-		
-		SDL_Rect* currentClip = &IdleSpriteClips[ frame / IDLE_ANIMATION_FRAMES ];
+            // Determine from which side the collision occurs
+            int playerBottom = player.hitBox.y + player.hitBox.h;
+            int boxBottom = box.y + box.h;
+            int playerRight = player.hitBox.x + player.hitBox.w;
+            int boxRight = box.x + box.w;
 
-		if(movingLeft || movingRight) currentClip = &RunningSpriteClips[ frame / WALKING_ANIMATION_FRAMES ];
+            int bCollision = boxBottom - player.hitBox.y;
+            int tCollision = playerBottom - box.y;
+            int lCollision = playerRight - box.x;
+            int rCollision = boxRight - player.hitBox.x;
 
-		SDL_Point rotationPoint = {currentClip->w/2, currentClip->h/2};
+            // If the collision is from the bottom or top
+            if (tCollision < bCollision && tCollision < lCollision && tCollision < rCollision) {
+                player.hitBox.y = box.y - player.hitBox.h;  // Move player above the box
+                player.velocity.y = 0;
+                player.isJumping = false;  // Allow jumping again
+            } else if (bCollision < tCollision && bCollision < lCollision && bCollision < rCollision) {
+                player.hitBox.y = box.y + box.h;  // Move player below the box
+                player.velocity.y = 0;
+            }
+            // If the collision is from the left or right
+            else if (lCollision < rCollision && lCollision < tCollision && lCollision < bCollision) {
+                player.hitBox.x = box.x - player.hitBox.w;  // Move player to the left of the box
+                player.velocity.x = 0;
+            } else if (rCollision < lCollision && rCollision < tCollision && rCollision < bCollision) {
+                player.hitBox.x = box.x + box.w;  // Move player to the right of the box
+                player.velocity.x = 0;
+            }
+        }
 
-		playerCamera.x = ( player.hitBox.x + PLAYER_WIDTH / 2 ) - SCREEN_WIDTH / 2;
-		playerCamera.y = ( player.hitBox.y + PLAYER_HEIGHT - SCREEN_HEIGHT + 50 );
+        // If the player walks off the edge of the box
+        if (wasOnBox && !checkCollision(player.hitBox, box)) {
+            player.isJumping = true;
+        }
 
-		camera.x = ( player.hitBox.x + PLAYER_WIDTH / 2 ) - SCREEN_WIDTH / 2;
-		camera.y = ( player.hitBox.y + PLAYER_HEIGHT - SCREEN_HEIGHT + 50 );
+        // Calculate and correct fps
+        float avgFPS = static_cast<float>(countedFrames) / (static_cast<float>(fpsTimer.getTicks()) / 1000.f);
 
-		while (camera.x > (multiplier + 1) * width) {
-			multiplier++;
-		}
+        // Clear screen
+        SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+        SDL_RenderClear(gRenderer);
+        
+        SDL_Rect* currentClip = &IdleSpriteClips[frame / IDLE_ANIMATION_FRAMES];
 
-		// Jeśli kamera wychodzi poza lewą granicę
-		while (camera.x < multiplier * width) {
-			multiplier--;
-		}
+        if (movingLeft || movingRight) currentClip = &RunningSpriteClips[frame / WALKING_ANIMATION_FRAMES];
 
-		// Aktualizujemy pozycję kamery tylko, jeśli mnożnik się zmienił
-		if (multiplier > 0) {
-			camera.x -= multiplier * width;
-			camera.w = SCREEN_WIDTH;
-		}
+        SDL_Point rotationPoint = {currentClip->w / 2, currentClip->h / 2};
 
-		if(camera.x > (gBackgroundTexture7.getWidth() - SCREEN_WIDTH) && camera.x < gBackgroundTexture7.getWidth()){
-			portion = 1.0f - (gBackgroundTexture7.getWidth() - camera.x) / static_cast<float>(SCREEN_WIDTH);
-			if(portion > 0.996) portion = 1;
-			if(portion < 0.004) portion = 0;
-			camera.w = (1 - portion) * SCREEN_WIDTH;
-		}
+        playerCamera.x = (player.hitBox.x + PLAYER_WIDTH / 2) - SCREEN_WIDTH / 2;
+        playerCamera.y = (player.hitBox.y + PLAYER_HEIGHT - SCREEN_HEIGHT + 50);
 
+        camera.x = (player.hitBox.x + PLAYER_WIDTH / 2) - SCREEN_WIDTH / 2;
+        camera.y = (player.hitBox.y + PLAYER_HEIGHT - SCREEN_HEIGHT + 50);
 
-		camera2.x = 0 ;
-		camera2.y = camera.y;
-		camera2.w = SCREEN_WIDTH - camera.w;
+        while (camera.x > (multiplier + 1) * width) {
+            multiplier++;
+        }
 
+        // If camera goes out of left boundary
+        while (camera.x < multiplier * width) {
+            multiplier--;
+        }
 
-		if(playerCamera.x <= 0){
-			playerCamera.x = 0;
-			camera.x = 0;
-		}
+        // Update camera position only if the multiplier has changed
+        if (multiplier > 0) {
+            camera.x -= multiplier * width;
+            camera.w = SCREEN_WIDTH;
+        }
 
-		// gBackgroundTexture75.render( 1200, 0, &camera);
+        if (camera.x > (gBackgroundTexture7.getWidth() - SCREEN_WIDTH) && camera.x < gBackgroundTexture7.getWidth()) {
+            portion = 1.0f - (gBackgroundTexture7.getWidth() - camera.x) / static_cast<float>(SCREEN_WIDTH);
+            if (portion > 0.996) portion = 1;
+            if (portion < 0.004) portion = 0;
+            camera.w = (1 - portion) * SCREEN_WIDTH;
+        }
 
-		gBackgroundTexture7.render( 0, 0, &camera );
-		gBackgroundTexture6.render( 0, 0, &camera );
-		gBackgroundTexture5.render( 0, 0, &camera );
-		gBackgroundTexture4.render( 0, 0, &camera );
-		gBackgroundTexture3.render( 0, 0, &camera );
-		gBackgroundTexture2.render( 0, 0, &camera );
-		gBackgroundTexture1.render( 0, 0, &camera ); 
+        camera2.x = 0;
+        camera2.y = camera.y;
+        camera2.w = SCREEN_WIDTH - camera.w;
 
-		if(camera.x > (gBackgroundTexture7.getWidth() - SCREEN_WIDTH) && camera.x < gBackgroundTexture7.getWidth()){
-			gBackgroundTexture7.render( camera.w, 0, &camera2 );
-			gBackgroundTexture6.render( camera.w, 0, &camera2 );
-			gBackgroundTexture5.render( camera.w, 0, &camera2 );
-			gBackgroundTexture4.render( camera.w, 0, &camera2 );
-			gBackgroundTexture3.render( camera.w, 0, &camera2 );
-			gBackgroundTexture2.render( camera.w, 0, &camera2 );
-			gBackgroundTexture1.render( camera.w, 0, &camera2 );
-		}
-		
-		gSpriteSheetTexture.render( player.hitBox.x - playerCamera.x, player.hitBox.y - playerCamera.y, currentClip, 0.0f, &rotationPoint, flipType );
+        if (playerCamera.x <= 0) {
+            playerCamera.x = 0;
+            camera.x = 0;
+        }
 
-		gBlocksSheetTexture.render(box.x - camera.x, box.y - camera.y, &box);
+        gBackgroundTexture7.render(0, 0, &camera);
+        gBackgroundTexture6.render(0, 0, &camera);
+        gBackgroundTexture5.render(0, 0, &camera);
+        gBackgroundTexture4.render(0, 0, &camera);
+        gBackgroundTexture3.render(0, 0, &camera);
+        gBackgroundTexture2.render(0, 0, &camera);
+        gBackgroundTexture1.render(0, 0, &camera);
 
-		//Update screen
-		SDL_RenderPresent( gRenderer );
+        if (camera.x > (gBackgroundTexture7.getWidth() - SCREEN_WIDTH) && camera.x < gBackgroundTexture7.getWidth()) {
+            gBackgroundTexture7.render(camera.w, 0, &camera2);
+            gBackgroundTexture6.render(camera.w, 0, &camera2);
+            gBackgroundTexture5.render(camera.w, 0, &camera2);
+            gBackgroundTexture4.render(camera.w, 0, &camera2);
+            gBackgroundTexture3.render(camera.w, 0, &camera2);
+            gBackgroundTexture2.render(camera.w, 0, &camera2);
+            gBackgroundTexture1.render(camera.w, 0, &camera2);
+        }
+        
+        gSpriteSheetTexture.render(player.hitBox.x - playerCamera.x, player.hitBox.y - playerCamera.y, currentClip, 0.0f, &rotationPoint, flipType);
 
-		//Go to next frame
-		++frame;
+        gBlocksSheetTexture.render(box.x - camera.x, box.y - camera.y, &BlockSpriteClip);
 
-		//Cycle animation
-		if( (movingLeft || movingRight) && (frame / WALKING_ANIMATION_FRAMES >= WALKING_ANIMATION_FRAMES) )
-		{
-			frame = 0;
-		}
-		else if(frame / IDLE_ANIMATION_FRAMES >= IDLE_ANIMATION_FRAMES){
-			frame = 0;
-		}
-		
+        // Update screen
+        SDL_RenderPresent(gRenderer);
 
-		++countedFrames;
+        // Go to next frame
+        ++frame;
 
-		int frameTicks = capTimer.getTicks();
-		if( frameTicks < SCREEN_TICKS_PER_FRAME )
-		{
-			//Wait remaining time
-			SDL_Delay( SCREEN_TICKS_PER_FRAME - frameTicks );
-		}
-	}
+        // Cycle animation
+        if ((movingLeft || movingRight) && (frame / WALKING_ANIMATION_FRAMES >= WALKING_ANIMATION_FRAMES)) {
+            frame = 0;
+        } else if (frame / IDLE_ANIMATION_FRAMES >= IDLE_ANIMATION_FRAMES) {
+            frame = 0;
+        }
+
+        ++countedFrames;
+
+        int frameTicks = capTimer.getTicks();
+        if (frameTicks < SCREEN_TICKS_PER_FRAME) {
+            // Wait remaining time
+            SDL_Delay(SCREEN_TICKS_PER_FRAME - frameTicks);
+        }
+    }
 }
+
 
 bool Game::init(){
 	//Initialization flag
@@ -367,56 +392,56 @@ bool Game::loadMedia()
 	{
         //Set sprite clips
 		//------------- RUNNING -------------
-        RunningSpriteClips[ 0 ].x = 50;
+        RunningSpriteClips[ 0 ].x = 63;
         RunningSpriteClips[ 0 ].y = 37;
-        RunningSpriteClips[ 0 ].w = 50;
+        RunningSpriteClips[ 0 ].w = 24;
         RunningSpriteClips[ 0 ].h = 37;
         
-        RunningSpriteClips[ 1 ].x = 100;
+        RunningSpriteClips[ 1 ].x = 113;
         RunningSpriteClips[ 1 ].y = 37;
-        RunningSpriteClips[ 1 ].w = 50;
+        RunningSpriteClips[ 1 ].w = 24;
         RunningSpriteClips[ 1 ].h = 37;
 
-        RunningSpriteClips[ 2 ].x = 150;
+        RunningSpriteClips[ 2 ].x = 163;
         RunningSpriteClips[ 2 ].y = 37;
-        RunningSpriteClips[ 2 ].w = 50;
+        RunningSpriteClips[ 2 ].w = 24;
         RunningSpriteClips[ 2 ].h = 37;
 
-        RunningSpriteClips[ 3 ].x = 200;
+        RunningSpriteClips[ 3 ].x = 213;
         RunningSpriteClips[ 3 ].y = 37;
         RunningSpriteClips[ 3 ].w = 50;
         RunningSpriteClips[ 3 ].h = 37;
 
-        RunningSpriteClips[ 4 ].x = 250;
+        RunningSpriteClips[ 4 ].x = 263;
         RunningSpriteClips[ 4 ].y = 37;
-        RunningSpriteClips[ 4 ].w = 50;
+        RunningSpriteClips[ 4 ].w = 24;
         RunningSpriteClips[ 4 ].h = 37;
         
-        RunningSpriteClips[ 5 ].x = 300;
+        RunningSpriteClips[ 5 ].x = 313;
         RunningSpriteClips[ 5 ].y = 37;
-        RunningSpriteClips[ 5 ].w = 50;
+        RunningSpriteClips[ 5 ].w = 24;
         RunningSpriteClips[ 5 ].h = 37;
 
 		//------------- IDLE -------------
 
-		IdleSpriteClips[ 0 ].x = 0;
+		IdleSpriteClips[ 0 ].x = 13;
         IdleSpriteClips[ 0 ].y = 0;
-        IdleSpriteClips[ 0 ].w = 50;
+        IdleSpriteClips[ 0 ].w = 24;
         IdleSpriteClips[ 0 ].h = 37;
         
-        IdleSpriteClips[ 1 ].x = 50;
+        IdleSpriteClips[ 1 ].x = 63;
         IdleSpriteClips[ 1 ].y = 0;
-        IdleSpriteClips[ 1 ].w = 50;
+        IdleSpriteClips[ 1 ].w = 24;
         IdleSpriteClips[ 1 ].h = 37;
 
-        IdleSpriteClips[ 2 ].x = 100;
+        IdleSpriteClips[ 2 ].x = 113;
         IdleSpriteClips[ 2 ].y = 0;
-        IdleSpriteClips[ 2 ].w = 50;
+        IdleSpriteClips[ 2 ].w = 24;
         IdleSpriteClips[ 2 ].h = 37;
 
-        IdleSpriteClips[ 3 ].x = 150;
+        IdleSpriteClips[ 3 ].x = 163;
         IdleSpriteClips[ 3 ].y = 0;
-        IdleSpriteClips[ 3 ].w = 50;
+        IdleSpriteClips[ 3 ].w = 24;
         IdleSpriteClips[ 3 ].h = 37;
 
 		//-----------JUMP-----------------
@@ -424,7 +449,10 @@ bool Game::loadMedia()
 
 		//----------BLOCKS---------------
 
-		gBlocksSheetTexture
+		BlockSpriteClip.x = 0;
+		BlockSpriteClip.y = 0;
+		BlockSpriteClip.w = 47;
+		BlockSpriteClip.h = 47;
     }
 
 	if( !gBackgroundTexture1.loadFromFile( "sprites/Background/Layer1.png" ) ){
@@ -463,7 +491,7 @@ bool Game::loadMedia()
 	}
 
 
-	if( !gBlocksSheetTexture.loadFromFile( "sprites/boxes/sprites/platforms.png" ) ){
+	if( !gBlocksSheetTexture.loadFromFile( "sprites/boxes/Terrain.png" ) ){
 		SDL_Log( "Failed to load sprite sheet texture!\n" );
 		success = false;
 	}
@@ -475,6 +503,7 @@ void Game::close()
 {
 	//Free loaded images
 	gSpriteSheetTexture.free();
+	gBlocksSheetTexture.free();
 	gBackgroundTexture1.free();
 	gBackgroundTexture2.free();
 	gBackgroundTexture3.free();

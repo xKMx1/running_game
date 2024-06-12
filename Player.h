@@ -4,7 +4,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 
-const int PLAYER_WIDTH = 50;
+const int PLAYER_WIDTH = 24;
 const int PLAYER_HEIGHT = 37;
 const int PLAYER_START_X = 200;
 const int PLAYER_START_Y = 700;

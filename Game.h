@@ -5,6 +5,8 @@
 #include <SDL_image.h>
 #include <stdio.h>
 #include <string>
+#include <cstdlib>
+#include <ctime>
 #include "TextureHandler.h"
 #include "Timer.h"
 #include "Player.h"
