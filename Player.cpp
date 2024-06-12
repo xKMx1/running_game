@@ -5,7 +5,7 @@ Player::Player(){
     velocity.x = 0.0f;
     velocity.y = 0.0f;
     isJumping = false;
-    acceleration.x = 1.0f;
+    acceleration.x = 0.2f;
     acceleration.y = GRAVITY;
 }
 

@@ -43,31 +43,45 @@ struct Block {
     SDL_Rect rect;
 };
 
+struct PlayerState {
+    SDL_Rect hitBox;
+    Vec2f velocity;
+    bool isJumping;
+    Uint32 timestamp;
+};
+
+std::deque<PlayerState> playerHistory;
 // Wektor przechowujący wszystkie bloki
 std::vector<Block> blocks;
 
-void Game::generateBlock() {
-    // Ustal losowe pozycje dla nowego bloku
-    int x = rand() % (player.hitBox.x + 2 * SCREEN_WIDTH) + 100;
-    int y = rand() % (650 - 200 + 1) + 200;
-    SDL_Rect newBlock = { x, y, 47, 47 };
-
-    // Dodaj nowy blok do wektora
-    blocks.push_back({ newBlock });
+Game::Game() : blockGenerationInterval(500) { // np. co 2000 milisekund (2 sekundy)
+    if (!init()) {
+        SDL_Log("Failed to initialize!\n");
+    } else {
+        if (!loadMedia()) {
+            SDL_Log("Failed to load media!\n");
+        }
+    }
+    Player();
+    blockGenerationTimer.start(); // Uruchom timer
 }
 
-Game::Game(){
-    if( !init() ){
-		SDL_Log( "Failed to initialize!\n" );
-	}
-	else{
-		//Load media
-		if( !loadMedia() ){
-			SDL_Log( "Failed to load media!\n" );
-		}
+void Game::generateBlockIndependent() {
+    int x = rand() % ( (player.hitBox.x + player.hitBox.w / 2 + SCREEN_WIDTH / 2 + 100) - (player.hitBox.x + player.hitBox.w / 2 + SCREEN_WIDTH / 2) + 1) + (player.hitBox.x + player.hitBox.w / 2 + SCREEN_WIDTH / 2);
+    int y = rand() % (700 - 400 + 1) + 400;
+    SDL_Rect newBlock = { x, y, 47, 47 };
+
+    bool isColliding = false;
+    for (auto& block : blocks) {
+        if (checkCollision(newBlock, block.rect)) {
+            isColliding = true;
+            break; // Przerwij pętlę, jeśli wykryto kolizję
+        }
     }
 
-    Player();
+    if (!isColliding) {
+        blocks.push_back({ newBlock });
+    }
 }
 
 bool Game::checkCollision( SDL_Rect a, SDL_Rect b ){
@@ -114,49 +128,31 @@ bool Game::checkCollision( SDL_Rect a, SDL_Rect b ){
 }
 
 void Game::gameLoop() {
-    // Main loop flag
     bool quit = false;
-
-    // Event handler
     SDL_Event e;
-    
     int frame = 0;
-
     Timer fpsTimer;
     Timer capTimer;
-
     float countedFrames = 0;
     fpsTimer.start();
-
     bool movingLeft = false;
     bool movingRight = false;
-
     float portion = 0;
     SDL_Rect backGroundRect = {0, 0};
     SDL_Rect backGroundRect2 = {0, 0};
     SDL_Rect displayRect = {0, 0};
     int howManyFlips = 0;
-
     int scrollingOffset = 0;
-
     SDL_RendererFlip flipType = SDL_FLIP_NONE;
-
     int width = gBackgroundTexture7.getWidth();
     int multiplier = 1;
 
-	SDL_Rect block = {1300, 600, 47, 47};
-	blocks.push_back({block});
     bool isPlayerOnBlock = false;
-    bool variable = true;
 
-    // Inicjalna generacja pierwszego bloku
-    // generateBlock();
-
-    // While application is running
     while (!quit) {
-        // Start cap timer
+        bool variable = false;
         capTimer.start();
-        // Handle events on queue
+        
         while (SDL_PollEvent(&e) != 0) {
             if (e.type == SDL_QUIT) {
                 quit = true;
@@ -169,7 +165,15 @@ void Game::gameLoop() {
                         movingRight = true;
                         break;
                     case SDLK_SPACE:
-                        player.jump();
+                        if (!player.isJumping) {
+                            variable = true;
+                            player.jump();
+                        }
+                        break;
+                    case SDLK_r: // Key to rewind time
+                        if (!isRewinding) {
+                            isRewinding = true;
+                        }
                         break;
                     default:
                         break;
@@ -188,6 +192,36 @@ void Game::gameLoop() {
             }
         }
 
+        Uint32 currentTime = SDL_GetTicks();
+        PlayerState currentState = { player.hitBox, player.velocity, player.isJumping, currentTime };
+        playerHistory.push_back(currentState);
+
+        // Remove states older than 4 seconds
+        while (!playerHistory.empty() && currentTime - playerHistory.front().timestamp > rewindDuration) {
+            playerHistory.pop_front();
+        }
+
+        if (isRewinding) {
+            // if (rewindTimer.getTicks() < rewindDuration) {
+            //     // Rewind player state
+            //     while (!playerHistory.empty() && currentTime - playerHistory.back().timestamp > (rewindDuration - rewindTimer.getTicks())) {
+            //         playerHistory.pop_back();
+            //     }
+            //     if (!playerHistory.empty()) {
+                    SDL_Log("%d %d %d %d", playerHistory.front().hitBox.x, playerHistory.front().hitBox.y, playerHistory.front().timestamp, playerHistory.front().isJumping );
+                    PlayerState rewindState = playerHistory.front();
+                    player.hitBox = rewindState.hitBox;
+                    player.velocity = rewindState.velocity;
+                    player.isJumping = rewindState.isJumping;
+                // }
+            // }
+            //  else {
+                isRewinding = false;
+                rewindTimer.stop();
+            // }
+        }
+        else {
+
         if (movingLeft && !movingRight) {
             flipType = SDL_FLIP_HORIZONTAL;
             --scrollingOffset;
@@ -196,22 +230,22 @@ void Game::gameLoop() {
             flipType = SDL_FLIP_NONE;
             ++scrollingOffset;
             player.moveRight();
-
-            // Generuj nowy blok co pewien czas, np. co 100 pikseli przesunięcia
-            if (scrollingOffset % 24 == 0) {
-                generateBlock();
-            }
         } else {
             player.stopMoving();
         }
 
+        if (blockGenerationTimer.getTicks() > blockGenerationInterval) {
+            generateBlockIndependent();
+            blockGenerationTimer.stop(); // Zresetuj timer
+            blockGenerationTimer.start(); // Zresetuj timer
+        }
+
+        SDL_Log("%d", player.hitBox.x);
+
         player.hitBox.x += static_cast<int>(player.velocity.x);
 
-        variable = true;
 
-        // Obsługa kolizji z blokami
         for (auto& block : blocks) {
-            // SDL_Log("%d, %d, %d, %d", player.hitBox.x, player.hitBox.y, block.rect.x, block.rect.y);
             if (checkCollision(player.hitBox, block.rect)) {
                 int playerBottom = player.hitBox.y + player.hitBox.h;
                 int boxBottom = block.rect.y + block.rect.h;
@@ -223,11 +257,10 @@ void Game::gameLoop() {
                 int lCollision = playerRight - block.rect.x;
                 int rCollision = boxRight - player.hitBox.x;
 
-                if (tCollision < bCollision && tCollision < lCollision && tCollision < rCollision) {
-                    player.hitBox.y = block.rect.y - player.hitBox.h;
+                if (tCollision < bCollision && tCollision < lCollision && tCollision < rCollision && !variable) {
+                    player.hitBox.y = block.rect.y - player.hitBox.h + 1;
                     player.velocity.y = 0;
                     player.isJumping = false;
-                    variable = false;
                 } else if (bCollision < tCollision && bCollision < lCollision && bCollision < rCollision) {
                     player.hitBox.y = block.rect.y + block.rect.h;
                     player.velocity.y = 0;
@@ -240,32 +273,33 @@ void Game::gameLoop() {
                 }
             }
         }
-        if(variable){
+
+        bool dupa = false;
+        for (auto& block : blocks) {
+            if(checkCollision(player.hitBox, block.rect)){
+                dupa = true;
+            }
+        }
+        if(!dupa){
             player.isJumping = true;
         }
 
+        
+
         player.applyGravity();
 
-        if (player.hitBox.y > LEVEL_HEIGHT - PLAYER_HEIGHT - 50) {
-            variable = true;
+        if (player.hitBox.y >=LEVEL_HEIGHT - PLAYER_HEIGHT - 50) {
             player.velocity.y = 0;
             player.hitBox.y = LEVEL_HEIGHT - PLAYER_HEIGHT - 50;
             player.isJumping = false;
         }
-		// for (auto& block : blocks) {
-        // //If the player walks off the edge of the box
-		// 	if (!checkCollision(player.hitBox, block.rect)) {
-		// 		player.isJumping = true;
-		// 	}
-        //     else{
-        //         player.isJumping = false;
-        //         break;
-        //     }
-		// }
-        // Calculate and correct fps
-        float avgFPS = static_cast<float>(countedFrames) / (static_cast<float>(fpsTimer.getTicks()) / 1000.f);
 
-        // Clear screen
+        if(player.hitBox.x < 0){
+            player.hitBox.x = 0;
+            camera.x = 0;
+        }
+
+        float avgFPS = static_cast<float>(countedFrames) / (static_cast<float>(fpsTimer.getTicks()) / 1000.f);
         SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
         SDL_RenderClear(gRenderer);
         
@@ -285,12 +319,10 @@ void Game::gameLoop() {
             multiplier++;
         }
 
-        // If camera goes out of left boundary
         while (camera.x < multiplier * width) {
             multiplier--;
         }
 
-        // Update camera position only if the multiplier has changed
         if (multiplier > 0) {
             camera.x -= multiplier * width;
             camera.w = SCREEN_WIDTH;
@@ -330,38 +362,31 @@ void Game::gameLoop() {
             gBackgroundTexture1.render(camera.w, 0, &camera2);
         }
 
-		for (auto& block : blocks) {
-			gBlocksSheetTexture.render(block.rect.x - (player.hitBox.x) + SCREEN_WIDTH / 2, block.rect.y - (player.hitBox.y + PLAYER_HEIGHT - SCREEN_HEIGHT + 50), &BlockSpriteClip);
-		}
+        for (auto& block : blocks) {
+            gBlocksSheetTexture.render(block.rect.x - (player.hitBox.x) + SCREEN_WIDTH / 2, block.rect.y - (player.hitBox.y + PLAYER_HEIGHT - SCREEN_HEIGHT + 50), &BlockSpriteClip);
+        }
 
-		// SDL_Log("%d %d  %d %d", player.hitBox.x, player.hitBox.y, blocks[0].rect.x, blocks[0].rect.y);
-
-		
-        
         gSpriteSheetTexture.render(player.hitBox.x - playerCamera.x, player.hitBox.y - playerCamera.y, currentClip, 0.0f, &rotationPoint, flipType);
-
-        // Update screen
         SDL_RenderPresent(gRenderer);
 
-        // Go to next frame
         ++frame;
 
-        // Cycle animation
         if ((movingLeft || movingRight) && (frame / WALKING_ANIMATION_FRAMES >= WALKING_ANIMATION_FRAMES)) {
             frame = 0;
         } else if (frame / IDLE_ANIMATION_FRAMES >= IDLE_ANIMATION_FRAMES) {
             frame = 0;
         }
-
+        }
         ++countedFrames;
 
         int frameTicks = capTimer.getTicks();
         if (frameTicks < SCREEN_TICKS_PER_FRAME) {
-            // Wait remaining time
             SDL_Delay(SCREEN_TICKS_PER_FRAME - frameTicks);
+
         }
     }
 }
+
 
 
 bool Game::init(){
