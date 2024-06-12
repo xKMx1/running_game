@@ -1,6 +1,5 @@
 #include "Game.h"
 
-const int LEVEL_WIDTH = 11280;
 const int LEVEL_HEIGHT = 793;
 
 const int SCREEN_WIDTH = 640;
@@ -38,6 +37,24 @@ TextureHandler gBackgroundTexture7( gRenderer );
 SDL_Rect camera = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 SDL_Rect camera2 = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
 SDL_Rect playerCamera = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+
+// Nowa struktura do przechowywania bloków
+struct Block {
+    SDL_Rect rect;
+};
+
+// Wektor przechowujący wszystkie bloki
+std::vector<Block> blocks;
+
+void Game::generateBlock() {
+    // Ustal losowe pozycje dla nowego bloku
+    int x = rand() % (player.hitBox.x + 2 * SCREEN_WIDTH) + 100;
+    int y = rand() % (650 - 200 + 1) + 200;
+    SDL_Rect newBlock = { x, y, 47, 47 };
+
+    // Dodaj nowy blok do wektora
+    blocks.push_back({ newBlock });
+}
 
 Game::Game(){
     if( !init() ){
@@ -96,7 +113,7 @@ bool Game::checkCollision( SDL_Rect a, SDL_Rect b ){
     return true;
 }
 
-void Game::gameLoop(){
+void Game::gameLoop() {
     // Main loop flag
     bool quit = false;
 
@@ -127,7 +144,13 @@ void Game::gameLoop(){
     int width = gBackgroundTexture7.getWidth();
     int multiplier = 1;
 
-    SDL_Rect box = {rand() % (800 - 100 + 1) + 100, rand() % (650 - 200 + 1) + 200, 47, 47};
+	SDL_Rect block = {1300, 600, 47, 47};
+	blocks.push_back({block});
+    bool isPlayerOnBlock = false;
+    bool variable = true;
+
+    // Inicjalna generacja pierwszego bloku
+    // generateBlock();
 
     // While application is running
     while (!quit) {
@@ -173,59 +196,72 @@ void Game::gameLoop(){
             flipType = SDL_FLIP_NONE;
             ++scrollingOffset;
             player.moveRight();
+
+            // Generuj nowy blok co pewien czas, np. co 100 pikseli przesunięcia
+            if (scrollingOffset % 24 == 0) {
+                generateBlock();
+            }
         } else {
             player.stopMoving();
         }
 
         player.hitBox.x += static_cast<int>(player.velocity.x);
+
+        variable = true;
+
+        // Obsługa kolizji z blokami
+        for (auto& block : blocks) {
+            // SDL_Log("%d, %d, %d, %d", player.hitBox.x, player.hitBox.y, block.rect.x, block.rect.y);
+            if (checkCollision(player.hitBox, block.rect)) {
+                int playerBottom = player.hitBox.y + player.hitBox.h;
+                int boxBottom = block.rect.y + block.rect.h;
+                int playerRight = player.hitBox.x + player.hitBox.w;
+                int boxRight = block.rect.x + block.rect.w;
+
+                int bCollision = boxBottom - player.hitBox.y;
+                int tCollision = playerBottom - block.rect.y;
+                int lCollision = playerRight - block.rect.x;
+                int rCollision = boxRight - player.hitBox.x;
+
+                if (tCollision < bCollision && tCollision < lCollision && tCollision < rCollision) {
+                    player.hitBox.y = block.rect.y - player.hitBox.h;
+                    player.velocity.y = 0;
+                    player.isJumping = false;
+                    variable = false;
+                } else if (bCollision < tCollision && bCollision < lCollision && bCollision < rCollision) {
+                    player.hitBox.y = block.rect.y + block.rect.h;
+                    player.velocity.y = 0;
+                } else if (lCollision < rCollision && lCollision < tCollision && lCollision < bCollision) {
+                    player.hitBox.x = block.rect.x - player.hitBox.w;
+                    player.velocity.x = 0;
+                } else if (rCollision < lCollision && rCollision < tCollision && rCollision < bCollision) {
+                    player.hitBox.x = block.rect.x + block.rect.w;
+                    player.velocity.x = 0;
+                }
+            }
+        }
+        if(variable){
+            player.isJumping = true;
+        }
+
         player.applyGravity();
 
         if (player.hitBox.y > LEVEL_HEIGHT - PLAYER_HEIGHT - 50) {
+            variable = true;
             player.velocity.y = 0;
             player.hitBox.y = LEVEL_HEIGHT - PLAYER_HEIGHT - 50;
             player.isJumping = false;
         }
-
-        bool wasOnBox = checkCollision(player.hitBox, box);
-
-        // Collision handling
-        if (checkCollision(player.hitBox, box)) {
-
-            // Determine from which side the collision occurs
-            int playerBottom = player.hitBox.y + player.hitBox.h;
-            int boxBottom = box.y + box.h;
-            int playerRight = player.hitBox.x + player.hitBox.w;
-            int boxRight = box.x + box.w;
-
-            int bCollision = boxBottom - player.hitBox.y;
-            int tCollision = playerBottom - box.y;
-            int lCollision = playerRight - box.x;
-            int rCollision = boxRight - player.hitBox.x;
-
-            // If the collision is from the bottom or top
-            if (tCollision < bCollision && tCollision < lCollision && tCollision < rCollision) {
-                player.hitBox.y = box.y - player.hitBox.h;  // Move player above the box
-                player.velocity.y = 0;
-                player.isJumping = false;  // Allow jumping again
-            } else if (bCollision < tCollision && bCollision < lCollision && bCollision < rCollision) {
-                player.hitBox.y = box.y + box.h;  // Move player below the box
-                player.velocity.y = 0;
-            }
-            // If the collision is from the left or right
-            else if (lCollision < rCollision && lCollision < tCollision && lCollision < bCollision) {
-                player.hitBox.x = box.x - player.hitBox.w;  // Move player to the left of the box
-                player.velocity.x = 0;
-            } else if (rCollision < lCollision && rCollision < tCollision && rCollision < bCollision) {
-                player.hitBox.x = box.x + box.w;  // Move player to the right of the box
-                player.velocity.x = 0;
-            }
-        }
-
-        // If the player walks off the edge of the box
-        if (wasOnBox && !checkCollision(player.hitBox, box)) {
-            player.isJumping = true;
-        }
-
+		// for (auto& block : blocks) {
+        // //If the player walks off the edge of the box
+		// 	if (!checkCollision(player.hitBox, block.rect)) {
+		// 		player.isJumping = true;
+		// 	}
+        //     else{
+        //         player.isJumping = false;
+        //         break;
+        //     }
+		// }
         // Calculate and correct fps
         float avgFPS = static_cast<float>(countedFrames) / (static_cast<float>(fpsTimer.getTicks()) / 1000.f);
 
@@ -293,10 +329,16 @@ void Game::gameLoop(){
             gBackgroundTexture2.render(camera.w, 0, &camera2);
             gBackgroundTexture1.render(camera.w, 0, &camera2);
         }
+
+		for (auto& block : blocks) {
+			gBlocksSheetTexture.render(block.rect.x - (player.hitBox.x) + SCREEN_WIDTH / 2, block.rect.y - (player.hitBox.y + PLAYER_HEIGHT - SCREEN_HEIGHT + 50), &BlockSpriteClip);
+		}
+
+		// SDL_Log("%d %d  %d %d", player.hitBox.x, player.hitBox.y, blocks[0].rect.x, blocks[0].rect.y);
+
+		
         
         gSpriteSheetTexture.render(player.hitBox.x - playerCamera.x, player.hitBox.y - playerCamera.y, currentClip, 0.0f, &rotationPoint, flipType);
-
-        gBlocksSheetTexture.render(box.x - camera.x, box.y - camera.y, &BlockSpriteClip);
 
         // Update screen
         SDL_RenderPresent(gRenderer);

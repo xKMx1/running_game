@@ -7,6 +7,7 @@
 #include <string>
 #include <cstdlib>
 #include <ctime>
+#include <vector>
 #include "TextureHandler.h"
 #include "Timer.h"
 #include "Player.h"
@@ -16,6 +17,8 @@ class Game{
         Player player;
 
         Game();
+
+        void generateBlock();
 
         void renderBackgroundLayer(TextureHandler& backgroundTexture, const SDL_Rect& camera);
 
@@ -28,6 +31,7 @@ class Game{
         void close();
 
         void gameLoop();
+
 };
 
 
