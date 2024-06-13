@@ -22,9 +22,13 @@ SDL_Texture* gTexture = NULL;
 
 const int WALKING_ANIMATION_FRAMES = 6;
 const int IDLE_ANIMATION_FRAMES = 4;
+const int JUMP_ANIMATION_FRAMES = 10;
+
+const int ANIMATION_DELAY = 4; // Number of frames to wait before updating the animation
 
 SDL_Rect RunningSpriteClips[ WALKING_ANIMATION_FRAMES ];
 SDL_Rect IdleSpriteClips[ IDLE_ANIMATION_FRAMES ];
+SDL_Rect JumpSpriteClips[ JUMP_ANIMATION_FRAMES ];
 SDL_Rect BlockSpriteClip;
 
 TextureHandler gSpriteSheetTexture( gRenderer );
@@ -72,7 +76,7 @@ Game::Game() : blockGenerationInterval(500) { // np. co 2000 milisekund (2 sekun
 void Game::generateBlockIndependent() {
     int x = rand() % ( (player.hitBox.x + player.hitBox.w / 2 + SCREEN_WIDTH / 2 + 100) - (player.hitBox.x + player.hitBox.w / 2 + SCREEN_WIDTH / 2) + 1) + (player.hitBox.x + player.hitBox.w / 2 + SCREEN_WIDTH / 2);
     int y = rand() % (700 - 400 + 1) + 400;
-    SDL_Rect newBlock = { x, y, 47, 47 };
+    SDL_Rect newBlock = { x, y, 43, 47 };
 
     bool isColliding = false;
     for (auto& block : blocks) {
@@ -149,9 +153,12 @@ void Game::gameLoop() {
     SDL_RendererFlip flipType = SDL_FLIP_NONE;
     int width = gBackgroundTexture7.getWidth();
     int multiplier = 1;
+    
 
     bool isPlayerOnBlock = false;
     // Mix_PlayMusic( gMusic, -1 );
+
+    int animationFrameDelay = 0; // Frame delay counter
 
     while (!quit) {
         bool variable = false;
@@ -245,8 +252,6 @@ void Game::gameLoop() {
             blockGenerationTimer.start(); // Zresetuj timer
         }
 
-        SDL_Log("%d", player.hitBox.x);
-
         player.hitBox.x += static_cast<int>(player.velocity.x);
 
 
@@ -289,8 +294,6 @@ void Game::gameLoop() {
             player.isJumping = true;
         }
 
-        
-
         player.applyGravity();
 
         if (player.hitBox.y >=LEVEL_HEIGHT - PLAYER_HEIGHT - 50) {
@@ -308,9 +311,13 @@ void Game::gameLoop() {
         SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
         SDL_RenderClear(gRenderer);
         
-        SDL_Rect* currentClip = &IdleSpriteClips[frame / IDLE_ANIMATION_FRAMES];
+        SDL_Rect* currentClip = &IdleSpriteClips[frame % IDLE_ANIMATION_FRAMES];
 
-        if (movingLeft || movingRight) currentClip = &RunningSpriteClips[frame / WALKING_ANIMATION_FRAMES];
+        if (movingLeft || movingRight) currentClip = &RunningSpriteClips[frame % WALKING_ANIMATION_FRAMES];
+
+        if (player.isJumping) currentClip = &JumpSpriteClips[frame % JUMP_ANIMATION_FRAMES];
+
+        SDL_Log("%d", frame % JUMP_ANIMATION_FRAMES);
 
         SDL_Point rotationPoint = {currentClip->w / 2, currentClip->h / 2};
 
@@ -368,19 +375,28 @@ void Game::gameLoop() {
         }
 
         for (auto& block : blocks) {
-            gBlocksSheetTexture.render(block.rect.x - (player.hitBox.x) + SCREEN_WIDTH / 2, block.rect.y - (player.hitBox.y + PLAYER_HEIGHT - SCREEN_HEIGHT + 50), &BlockSpriteClip);
+            gBlocksSheetTexture.render(block.rect.x - (player.hitBox.x) + SCREEN_WIDTH / 2 - 15, block.rect.y - (player.hitBox.y + PLAYER_HEIGHT - SCREEN_HEIGHT + 50), &BlockSpriteClip);
         }
 
         gSpriteSheetTexture.render(player.hitBox.x - playerCamera.x, player.hitBox.y - playerCamera.y, currentClip, 0.0f, &rotationPoint, flipType);
         SDL_RenderPresent(gRenderer);
 
-        ++frame;
-
-        if ((movingLeft || movingRight) && (frame / WALKING_ANIMATION_FRAMES >= WALKING_ANIMATION_FRAMES)) {
-            frame = 0;
-        } else if (frame / IDLE_ANIMATION_FRAMES >= IDLE_ANIMATION_FRAMES) {
-            frame = 0;
+        if(animationFrameDelay > ANIMATION_DELAY){
+            ++frame;
+            animationFrameDelay = 0;
         }
+        else{
+            animationFrameDelay++;
+        }
+
+        // if(player.isJumping && (frame / JUMP_ANIMATION_FRAMES >= JUMP_ANIMATION_FRAMES)){
+        //     frame = 0;
+        // }
+        // else if ((movingLeft || movingRight) && (frame / WALKING_ANIMATION_FRAMES >= WALKING_ANIMATION_FRAMES)) {
+        //     frame = 0;
+        // } else if (frame / IDLE_ANIMATION_FRAMES >= IDLE_ANIMATION_FRAMES) {
+        //     frame = 0;
+        // }
         }
         ++countedFrames;
 
@@ -391,8 +407,6 @@ void Game::gameLoop() {
         }
     }
 }
-
-
 
 bool Game::init(){
 	//Initialization flag
@@ -493,7 +507,7 @@ bool Game::loadMedia()
 
         RunningSpriteClips[ 3 ].x = 213;
         RunningSpriteClips[ 3 ].y = 37;
-        RunningSpriteClips[ 3 ].w = 50;
+        RunningSpriteClips[ 3 ].w = 24;
         RunningSpriteClips[ 3 ].h = 37;
 
         RunningSpriteClips[ 4 ].x = 263;
@@ -530,6 +544,55 @@ bool Game::loadMedia()
 
 		//-----------JUMP-----------------
 
+        JumpSpriteClips[ 0 ].x = 13;
+        JumpSpriteClips[ 0 ].y = 74;
+        JumpSpriteClips[ 0 ].w = 24;
+        JumpSpriteClips[ 0 ].h = 37;
+
+        JumpSpriteClips[ 1 ].x = 63;
+        JumpSpriteClips[ 1 ].y = 74;
+        JumpSpriteClips[ 1 ].w = 24;
+        JumpSpriteClips[ 1 ].h = 37;
+
+        JumpSpriteClips[ 2 ].x = 113;
+        JumpSpriteClips[ 2 ].y = 74;
+        JumpSpriteClips[ 2 ].w = 24;
+        JumpSpriteClips[ 2 ].h = 37;
+
+        JumpSpriteClips[ 3 ].x = 163;
+        JumpSpriteClips[ 3 ].y = 74;
+        JumpSpriteClips[ 3 ].w = 24;
+        JumpSpriteClips[ 3 ].h = 37;
+
+        JumpSpriteClips[ 4 ].x = 213;
+        JumpSpriteClips[ 4 ].y = 74;
+        JumpSpriteClips[ 4 ].w = 24;
+        JumpSpriteClips[ 4 ].h = 37;
+
+        JumpSpriteClips[ 5 ].x = 263;
+        JumpSpriteClips[ 5 ].y = 74;
+        JumpSpriteClips[ 5 ].w = 24;
+        JumpSpriteClips[ 5 ].h = 37;
+
+        JumpSpriteClips[ 6 ].x = 313;
+        JumpSpriteClips[ 6 ].y = 74;
+        JumpSpriteClips[ 6 ].w = 24;
+        JumpSpriteClips[ 6 ].h = 37;
+
+        JumpSpriteClips[ 7 ].x = 13;
+        JumpSpriteClips[ 7 ].y = 111;
+        JumpSpriteClips[ 7 ].w = 24;
+        JumpSpriteClips[ 7 ].h = 37;
+
+        JumpSpriteClips[ 8 ].x = 63;
+        JumpSpriteClips[ 8 ].y = 111;
+        JumpSpriteClips[ 8 ].w = 24;
+        JumpSpriteClips[ 8 ].h = 37;
+
+        JumpSpriteClips[ 9 ].x = 113;
+        JumpSpriteClips[ 9 ].y = 111;
+        JumpSpriteClips[ 9 ].w = 24;
+        JumpSpriteClips[ 9 ].h = 37;
 
 		//----------BLOCKS---------------
 
