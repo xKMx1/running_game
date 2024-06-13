@@ -134,9 +134,12 @@ bool Game::loadMedia() {
         // Jump Clips   
         for (int i = 0; i < JUMP_ANIMATION_FRAMES; i++) {
             int j = i;
-            if(i <= 6) {}
-            else j -= 7;
-            JumpSpriteClips[i] = {13 + i * 50, 74, 24, 37};
+            int k = 0;
+            if(i <= 5) {}
+            else {j -= 6; k = 1;}
+            JumpSpriteClips[j] = {63 + j * 50, 74 + k * 37, 24, 37};
+
+            SDL_Log("%d, %d, %d", JumpSpriteClips[j].x, JumpSpriteClips[j].y, i);
         }
 
         BlockSpriteClip = {0, 0, 47, 47};
@@ -335,9 +338,12 @@ void Game::handlePlayerCollision(bool &isPlayerOnBlock) {
                 player.velocity.x = 0;
             }
 
-            if (!(tCollision < bCollision && tCollision < lCollision && tCollision < rCollision)) {
-                isPlayerOnBlock = false;
-            }
+            // if (!(tCollision < bCollision && tCollision < lCollision && tCollision < rCollision)) {
+            //     isPlayerOnBlock = false;
+            // }
+        }
+        else {
+            isPlayerOnBlock = false;
         }
     }
 }
@@ -404,11 +410,13 @@ void Game::renderGame(int &animationFrameDelay, int frame, SDL_RendererFlip &fli
 SDL_Rect* Game::getCurrentClip(int frame, bool movingLeft, bool movingRight) {
     SDL_Rect* currentClip;
 
-    currentClip = &IdleSpriteClips[frame % IDLE_ANIMATION_FRAMES];
+    // currentClip = &IdleSpriteClips[frame % IDLE_ANIMATION_FRAMES];
 
-    if (movingLeft || movingRight) currentClip = &RunningSpriteClips[frame % WALKING_ANIMATION_FRAMES];
+    // if (movingLeft || movingRight) currentClip = &RunningSpriteClips[frame % WALKING_ANIMATION_FRAMES];
 
-    if (player.isJumping) currentClip = &JumpSpriteClips[frame % JUMP_ANIMATION_FRAMES];
+    // if (player.isJumping) 
+    currentClip = &JumpSpriteClips[frame % JUMP_ANIMATION_FRAMES];
+    SDL_Log("%d, %d", currentClip->x, currentClip->y);
 
     return currentClip;
 }
