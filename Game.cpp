@@ -131,15 +131,14 @@ bool Game::loadMedia() {
             IdleSpriteClips[i] = {13 + i * 50, 0, 24, 37};
         }
 
-        // Jump Clips   
-        for (int i = 0; i < JUMP_ANIMATION_FRAMES; i++) {
-            int j = i;
-            int k = 0;
-            if(i <= 5) {}
-            else {j -= 6; k = 1;}
-            JumpSpriteClips[j] = {63 + j * 50, 74 + k * 37, 24, 37};
+        int xOffset[] = { 13, 63, 113, 163, 213, 263, 313, 13, 63, 113 };
+        int yOffset[] = { 74, 74, 74, 74, 74, 74, 74, 111, 111, 111 };
 
-            SDL_Log("%d, %d, %d", JumpSpriteClips[j].x, JumpSpriteClips[j].y, i);
+        for (int i = 0; i < JUMP_ANIMATION_FRAMES; i++) {
+            JumpSpriteClips[i].x = xOffset[i];
+            JumpSpriteClips[i].y = yOffset[i];
+            JumpSpriteClips[i].w = 24;
+            JumpSpriteClips[i].h = 37;
         }
 
         BlockSpriteClip = {0, 0, 47, 47};
@@ -272,7 +271,7 @@ void Game::handleKeyUp(SDL_Event &e, bool &movingLeft, bool &movingRight) {
 }
 
 void Game::handlePlayerMovement(bool movingLeft, bool movingRight, SDL_RendererFlip &flipType, bool isOnBlock) {
-    // 
+    // Move player according to its state
     if (movingLeft && !movingRight && player.hitBox.x > 0) {
         flipType = SDL_FLIP_HORIZONTAL;
         player.moveLeft();
@@ -283,6 +282,7 @@ void Game::handlePlayerMovement(bool movingLeft, bool movingRight, SDL_RendererF
         player.stopMoving();
     }
 
+    // Additional collision check to adjust player.isJumping variable
     bool isCollidingWithBlock = false;
     for (auto& block : blocks) {
         if(checkCollision(player.hitBox, block.rect)){
@@ -293,16 +293,20 @@ void Game::handlePlayerMovement(bool movingLeft, bool movingRight, SDL_RendererF
         player.isJumping = true;
     }
 
+    // If player is jumping we calculate his y velocity accounting for gravity
     player.applyGravity();
 
+    // Placing player on ground
     if (player.hitBox.y >=LEVEL_HEIGHT - PLAYER_HEIGHT - 50) {
         player.velocity.y = 0;
         player.hitBox.y = LEVEL_HEIGHT - PLAYER_HEIGHT - 50;
         player.isJumping = false;
     }
 
+    // Moving player according to his velocity
     player.hitBox.x += static_cast<int>(player.velocity.x);
 
+    // Constraint on camera
     camera.x = (player.hitBox.x + player.hitBox.w / 2) - SCREEN_WIDTH / 2;
     if (camera.x < 0) {
         camera.x = 0;
@@ -310,8 +314,10 @@ void Game::handlePlayerMovement(bool movingLeft, bool movingRight, SDL_RendererF
 }
 
 void Game::handlePlayerCollision(bool &isPlayerOnBlock) {
+    // Checking collision with all blocks
     for (auto& block : blocks) {
         if (checkCollision(player.hitBox, block.rect)) {
+            // Calculating all the sides
             int playerBottom = player.hitBox.y + player.hitBox.h;
             int boxBottom = block.rect.y + block.rect.h;
             int playerRight = player.hitBox.x + player.hitBox.w;
@@ -322,6 +328,7 @@ void Game::handlePlayerCollision(bool &isPlayerOnBlock) {
             int lCollision = playerRight - block.rect.x;
             int rCollision = boxRight - player.hitBox.x;
 
+            // Checking collision terms
             if (tCollision < bCollision && tCollision < lCollision && tCollision < rCollision) {
                 player.hitBox.y = block.rect.y - player.hitBox.h + 1;
                 isPlayerOnBlock = true;
@@ -337,17 +344,15 @@ void Game::handlePlayerCollision(bool &isPlayerOnBlock) {
                 player.hitBox.x = block.rect.x + block.rect.w;
                 player.velocity.x = 0;
             }
-
-            // if (!(tCollision < bCollision && tCollision < lCollision && tCollision < rCollision)) {
-            //     isPlayerOnBlock = false;
-            // }
         }
+        // switching isPlayerOnBlock to false if not colliding
         else {
             isPlayerOnBlock = false;
         }
     }
 }
 
+// Rendering the game
 void Game::renderGame(int &animationFrameDelay, int frame, SDL_RendererFlip &flipType, int width, float &portion, int &multiplier, bool movingLeft, bool movingRight) {
     SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
     SDL_RenderClear(renderer);
@@ -382,10 +387,24 @@ void Game::renderGame(int &animationFrameDelay, int frame, SDL_RendererFlip &fli
     camera2.y = camera.y;
     camera2.w = SCREEN_WIDTH - camera.w;
 
+
     if (playerCamera.x <= 0) {
         playerCamera.x = 0;
         camera.x = 0;
     }
+
+    // int cameraXOffset = camera.x % width;
+    // int camera2XOffset = camera2.x % width;
+    // for (int i = 7; i >= 0; i--) {
+    //     int parallaxFactor = i + 1;  // Adjust parallax factor based on layer depth
+    //     int bgOffsetX = static_cast<int>(camera.x / parallaxFactor);
+    //     backgroundTextures[i].render(bgOffsetX, 0, &camera);
+    // }
+    // if (camera.x > (width - SCREEN_WIDTH) && camera.x < width){
+    //     for(int i = 7; i >= 0; i--){
+    //         backgroundTextures[i].render(camera.w, 0, &camera2);
+    //     }
+    // }
 
     for(int i = 7; i >= 0; i--){
         backgroundTextures[i].render(0, 0, &camera);
@@ -407,16 +426,17 @@ void Game::renderGame(int &animationFrameDelay, int frame, SDL_RendererFlip &fli
     SDL_RenderPresent(renderer);
 }
 
-SDL_Rect* Game::getCurrentClip(int frame, bool movingLeft, bool movingRight) {
+SDL_Rect* Game::getCurrentClip(int &frame, bool movingLeft, bool movingRight) {
     SDL_Rect* currentClip;
 
-    // currentClip = &IdleSpriteClips[frame % IDLE_ANIMATION_FRAMES];
+    currentClip = &IdleSpriteClips[frame % IDLE_ANIMATION_FRAMES];
 
-    // if (movingLeft || movingRight) currentClip = &RunningSpriteClips[frame % WALKING_ANIMATION_FRAMES];
+    if (movingLeft || movingRight) currentClip = &RunningSpriteClips[frame % WALKING_ANIMATION_FRAMES];
 
-    // if (player.isJumping) 
-    currentClip = &JumpSpriteClips[frame % JUMP_ANIMATION_FRAMES];
-    SDL_Log("%d, %d", currentClip->x, currentClip->y);
+    if (player.isJumping) currentClip = &JumpSpriteClips[frame % JUMP_ANIMATION_FRAMES];
+    if(frame % JUMP_ANIMATION_FRAMES){
+        frame = 0;
+    }
 
     return currentClip;
 }

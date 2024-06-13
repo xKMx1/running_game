@@ -56,7 +56,7 @@ class Game{
 
         void renderGame(int &animationFrameDelay, int frame, SDL_RendererFlip &flipType, int width, float &portion, int &multiplier, bool movingLeft, bool movingRight);
 
-        SDL_Rect* getCurrentClip(int frame, bool movingLeft, bool movingRight);
+        SDL_Rect* getCurrentClip(int &frame, bool movingLeft, bool movingRight);
 
         bool init();
 
