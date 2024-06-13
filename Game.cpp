@@ -8,6 +8,9 @@ const int SCREEN_HEIGHT = 480;
 const int SCREEN_FPS = 60;
 const int SCREEN_TICKS_PER_FRAME = 1000 / SCREEN_FPS;
 
+Mix_Music* gMusic = NULL;
+Mix_Chunk* gJump = NULL;
+
 //The window we'll be rendering to
 SDL_Window* gWindow = NULL;
 
@@ -148,6 +151,7 @@ void Game::gameLoop() {
     int multiplier = 1;
 
     bool isPlayerOnBlock = false;
+    // Mix_PlayMusic( gMusic, -1 );
 
     while (!quit) {
         bool variable = false;
@@ -166,6 +170,7 @@ void Game::gameLoop() {
                         break;
                     case SDLK_SPACE:
                         if (!player.isJumping) {
+                            // Mix_PlayChannel( -1, gJump, 0 );
                             variable = true;
                             player.jump();
                         }
@@ -393,6 +398,12 @@ bool Game::init(){
 	//Initialization flag
 	bool success = true;
 
+    if( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_AUDIO ) < 0 )
+    {
+        printf( "SDL could not initialize! SDL Error: %s\n", SDL_GetError() );
+        success = false;
+    }
+
 	//Initialize SDL
 	if( SDL_Init( SDL_INIT_VIDEO ) < 0 ){
 		SDL_Log( "SDL could not initialize! SDL Error: %s\n", SDL_GetError() );
@@ -428,6 +439,12 @@ bool Game::init(){
 					SDL_Log( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() );
 					success = false;
 				}
+                 //Initialize SDL_mixer
+                if( Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0 )
+                {
+                    printf( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
+                    success = false;
+                }
 			}
 		}
 	}
@@ -563,12 +580,33 @@ bool Game::loadMedia()
 		success = false;
 	}
 
+    //Load music
+    gMusic = Mix_LoadMUS( "sprites/Music/song.wav" );
+    if( gMusic == NULL )
+    {
+        SDL_Log( "Failed to load beat music! SDL_mixer Error: %s\n", Mix_GetError() );
+        success = false;
+    }
+    
+    //Load sound effects
+    gJump = Mix_LoadWAV( "sprites/boxes/sounds/jump.wav" );
+    if( gJump == NULL )
+    {
+        SDL_Log( "Failed to load scratch sound effect! SDL_mixer Error: %s\n", Mix_GetError() );
+        success = false;
+    }
+
 	return success;
 }
 
 void Game::close()
 {
 	//Free loaded images
+    Mix_FreeChunk( gJump );
+    gJump = NULL;
+    Mix_FreeMusic( gMusic );
+    gMusic = NULL;
+
 	gSpriteSheetTexture.free();
 	gBlocksSheetTexture.free();
 	gBackgroundTexture1.free();
@@ -586,6 +624,7 @@ void Game::close()
 	gRenderer = NULL;
 
 	//Quit SDL subsystems
+    Mix_Quit();
 	IMG_Quit();
 	SDL_Quit();
 }

@@ -7,6 +7,7 @@
 #include <string>
 #include <cstdlib>
 #include <deque>
+#include <SDL_mixer.h>
 #include <ctime>
 #include <vector>
 #include "TextureHandler.h"

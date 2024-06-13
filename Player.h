@@ -17,6 +17,7 @@ struct Vec2f{
     float y;
 };
 
+
 class Player{
     public: 
         SDL_Rect hitBox;
