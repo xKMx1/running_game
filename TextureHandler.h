@@ -12,6 +12,7 @@ class TextureHandler
 		
 		//Initializes variables
 		TextureHandler( SDL_Renderer* renderer );
+		TextureHandler();
 
 		//Deallocates memory
 		~TextureHandler();

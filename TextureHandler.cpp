@@ -1,5 +1,12 @@
 #include "TextureHandler.h"
 
+TextureHandler::TextureHandler(){
+	mRenderer = NULL;
+	mTexture = NULL;
+	mWidth = 0;
+	mHeight = 0;
+}
+
 TextureHandler::TextureHandler( SDL_Renderer* renderer )
 {
 	//Initialize
